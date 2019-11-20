@@ -1,33 +1,32 @@
 import tensorflow as tf
 import numpy as np
 from warprnnt_tensorflow import rnnt_loss
-from tensorflow.python.client import device_lib
-
-def is_gpu_available():
-    """Returns whether Tensorflow can access a GPU."""
-    return any(x.device_type == 'GPU' for x in device_lib.list_local_devices())
 
 class WarpRNNTTest(tf.test.TestCase):
 
     def _run_rnnt(self, acts, labels, input_lengths, label_lengths,
-                    expected_costs, expected_grads, blank, use_gpu=False):
-        self.assertEquals(acts.shape, expected_grads.shape)
+                  expected_costs, expected_grads, blank, use_gpu=False):
+
+        self.assertEqual(acts.shape, expected_grads.shape)
+
         acts_t = tf.constant(acts)
         labels_t = tf.constant(labels)
         input_lengths_t = tf.constant(input_lengths)
         label_lengths_t = tf.constant(label_lengths)
 
-        logits = acts_t if use_gpu else tf.nn.log_softmax(acts_t)
-        costs = rnnt_loss(logits, labels_t, input_lengths_t, label_lengths_t, blank)
+        with tf.GradientTape() as tape:
 
-        grads = tf.gradients(costs, [acts_t])[0]
+            tape.watch(acts_t)
+            logits = acts_t if use_gpu else tf.nn.log_softmax(acts_t)
+            costs = rnnt_loss(logits, labels_t, input_lengths_t, label_lengths_t, blank)
 
-        with self.test_session(use_gpu=use_gpu) as sess:
-            (tf_costs, tf_grad) = sess.run([costs, grads])
-            self.assertAllClose(tf_costs, expected_costs, atol=1e-6)
-            self.assertAllClose(tf_grad, expected_grads, atol=1e-6)
+        grads = tape.gradient(costs, [acts_t])[0]
+
+        self.assertAllClose(costs, expected_costs, atol=1e-6)
+        self.assertAllClose(grads, expected_grads, atol=1e-6)
     
     def test_forward(self):
+
         # Softmax activations for the following inputs:
         acts = np.array([0.1, 0.6, 0.1, 0.1, 0.1, 0.1, 
                         0.1, 0.6, 0.1, 0.1, 0.1, 0.1, 
@@ -43,12 +42,15 @@ class WarpRNNTTest(tf.test.TestCase):
         labels_t = tf.constant(labels)
         input_lengths_t = tf.constant(input_lengths)
         label_lengths_t = tf.constant(label_lengths)
+
         acts_t = tf.nn.log_softmax(acts_t) # NOTE cpu
+
         costs = rnnt_loss(acts_t, labels_t, input_lengths_t, label_lengths_t)
-        with self.test_session():
-            print(costs.eval())
+
+        print(costs)
 
     def _test_multiple_batches(self, use_gpu):
+        
         B = 2; T = 4; U = 3; V = 3
 
         acts = np.array([0.065357, 0.787530, 0.081592, 0.529716, 0.750675, 0.754135, 
@@ -85,13 +87,16 @@ class WarpRNNTTest(tf.test.TestCase):
         self._run_rnnt(acts, labels, input_lengths, label_lengths, expected_costs, expected_grads, 0, use_gpu)
 
     def test_multiple_batches_cpu(self):
+
         self._test_multiple_batches(use_gpu=False)
     
     def test_multiple_batches_gpu(self):
-        if (is_gpu_available()):
+
+        if tf.test.is_gpu_available():
             self._test_multiple_batches(use_gpu=True)
         else:
             print('Skipping GPU test, no gpus available')
 
 if __name__ == '__main__':
+
     tf.test.main()
