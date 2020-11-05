@@ -58,6 +58,14 @@ First import the module:
 import warprnnt_tensorflow
 ```
 
+Some MacOS users may get a `Reason: image not found` error, if you get this error, please refer to the following issue for the solution using `install_name_tool`: [Solution](https://github.com/tensorflow/tensorflow/issues/19720). The command should look something like this:
+
+```
+install_name_tool \
+    -change @rpath/libwarprnnt.dylib ./warp-transducer/build/libwarprnnt.dylib \
+    venv/lib/python3.7/site-packages/warprnnt_tensorflow-0.1-py3.7-macosx-10.14-x86_64.egg/warprnnt_tensorflow/kernels.cpython-37m-darwin.so
+```
+
 The WarpRNNT op is available via the `warprnnt_tensorflow.rnnt_loss` function:
 
 ```python

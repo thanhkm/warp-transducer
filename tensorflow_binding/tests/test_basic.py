@@ -2,18 +2,7 @@ import numpy as np
 import tensorflow as tf
 from warprnnt_tensorflow import rnnt_loss
 
-acts = tf.placeholder(tf.float32, [None, None, None, None])
-labels = tf.placeholder(tf.int32, [None, None])
-input_length = tf.placeholder(tf.int32, [None])
-label_length = tf.placeholder(tf.int32, [None])
-
-B = 2; T = 4; U = 3; V = 3; blank = 0
-
-logits = tf.nn.log_softmax(acts)
-costs = rnnt_loss(logits, labels, input_length, label_length, blank)
-grad = tf.gradients(costs, [acts])
-
-a = np.array([[[[0.06535690384862791, 0.7875301411923206, 0.08159176605666074],
+acts = tf.constant([[[[0.06535690384862791, 0.7875301411923206, 0.08159176605666074],
             [0.5297155426466327, 0.7506749639230854, 0.7541348379087998],
             [0.6097641124736383, 0.8681404965673826, 0.6225318186056529]],
 
@@ -43,14 +32,17 @@ a = np.array([[[[0.06535690384862791, 0.7875301411923206, 0.08159176605666074],
 
             [[0.25000547599982104, 0.6034295486281007, 0.9872887878887768],
             [0.5926057265215715, 0.8846724004467684, 0.5434495396894328],
-            [0.6607698886038497, 0.3771277082495921, 0.3580209022231813]]]], dtype=np.float32)
+            [0.6607698886038497, 0.3771277082495921, 0.3580209022231813]]]], dtype=tf.float32)
 
-b = np.array([[1, 2], [1, 1]], dtype=np.int32)
-c = np.array([4, 4], dtype=np.int32)
-d = np.array([2, 2], dtype=np.int32)
+labels = tf.constant([[1, 2, 3], [1, 1, 1]], dtype=np.int32)
+input_length = tf.constant([4, 4], dtype=tf.int32)
+label_length = tf.constant([2, 2], dtype=tf.int32)
 
-feed = {acts: a, labels: b, input_length: c, label_length: d}
-with tf.Session() as sess:
-    cost, grads = sess.run([costs, grad], feed_dict=feed)
-    print(cost)
-    print(grads)
+with tf.GradientTape() as tape:
+    tape.watch(acts)
+    logits = tf.nn.log_softmax(acts)
+    costs = rnnt_loss(logits, labels, input_length, label_length, 0)
+
+grads = tape.gradient(costs, [acts])
+print(costs)
+print(grads)
